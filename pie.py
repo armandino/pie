@@ -1,13 +1,14 @@
-import logging
-import urwid
-import subprocess
-
 import argparse
-import re
+import logging
 import os
-from os.path import isfile
+import re
+import subprocess
 import sys
+import urwid
 
+from abc import ABCMeta, abstractmethod
+
+# TODO: fix error - python pie.py /tmp/
 
 class PieUI(urwid.ListWalker):
 
@@ -41,18 +42,6 @@ class PieUI(urwid.ListWalker):
             top, palette,
             input_filter=self.input_handler)
 
-    # these actions should be factored out of UI
-    def open_file(self, path, **kwargs):
-        editor_cmd = kwargs['editor']
-        cmd = editor_cmd.split()
-        cmd.append(path)
-        self.log.debug(cmd)
-        subprocess.call(cmd)
-        
-    def svn_diff(self, path, **kwargs):
-        self.log.debug("svn diff " + path)
-        subprocess.call("svn diff " + path + " | less", shell=True)
-
     def get_focus_index(self):
         focus_widget, idx = self.listbox.get_focus()
         return idx
@@ -80,18 +69,35 @@ class PieUI(urwid.ListWalker):
             if idx > 0:
                 idx = idx-1
                 self.listbox.set_focus(idx)
-                
         elif key in ('o', 'O'):
-            path = self.get_focus_path()
-            self.open_file(path, editor='emacs -nw')
+            OpenFileAction().perform(self.get_focus_path(), editor='emacs -nw')
         elif key in ('d', 'D'):
-            path = self.get_focus_path()
-            self.svn_diff(path)
+            SvnDiffAction().perform(self.get_focus_path())
         elif key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
 
     def start(self):
         self.loop.run()
+
+
+class AbstractAction:
+    __metaclass__ = ABCMeta
+    
+    @abstractmethod
+    def perform(self, path, **kwargs):
+        """Performs an action on given path"""
+
+class OpenFileAction(AbstractAction):
+    def perform(self, path, **kwargs):
+        editor_cmd = kwargs['editor']
+        cmd = editor_cmd.split()
+        cmd.append(path)
+        subprocess.call(cmd)
+        
+class SvnDiffAction(AbstractAction):
+    def perform(self, path, **kwargs):
+        subprocess.call("svn diff " + path + " | less", shell=True)
+
 
 
 class PieFind:
@@ -106,7 +112,7 @@ class PieFind:
         subDirs = []
         for item in dirList:
             path = os.path.join(baseDir, item)
-            if isfile(path):
+            if os.path.isfile(path):
                 if self.matches(searchstring, item):
                     if path.startswith('./'):
                         path = path[2:]
