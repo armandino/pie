@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 import argparse
+import ConfigParser
 import logging
 import os
 import re
@@ -10,12 +13,45 @@ from abc import ABCMeta, abstractmethod
 
 # TODO: fix error - python pie.py /tmp/
 
+class PieConfig:
+    CONFIG_FILE = '~/.pie'
+
+    def __init__(self):
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(os.path.expanduser(self.CONFIG_FILE))
+
+    def get_key_command_mappings(self):
+        action_map = {}
+        try:
+            actions = self.config.items('KeyMappings')
+            for action in actions:
+                action_name = action[0]
+                action_cmd = action[1]
+                action_map[action_name] = action_cmd
+        except:
+            pass
+        return action_map
+
+
+    def get_ignored_dirs(self):
+        ignored = []
+        try:
+            value = self.config.get('Ignore', 'directories')
+            ignored = [x.strip() for x in value.split(',')]
+        except:
+            pass
+        return ignored
+
+
 class PieUI(urwid.ListWalker):
 
+    PAGE_SCROLL_SIZE = 10
+    
     logging.basicConfig(filename='/tmp/pie.log', level=logging.DEBUG)
     log = logging.getLogger()
     
-    def __init__(self, path_list):
+    def __init__(self, pie_find, path_list):
+        self.pie_find = pie_find
         self.items = []
         for path in path_list:
             self.items.append(urwid.Text(path))
@@ -51,57 +87,65 @@ class PieUI(urwid.ListWalker):
         path, attrs = self.items[idx].get_text()
         return path
 
+    def scroll_up(self, offset):
+        idx = self.get_focus_index()
+        if idx - offset > 0:
+            idx = idx - offset
+            self.listbox.set_focus(idx)
+        else:
+            self.scroll_to_first()
+
+    def scroll_down(self, offset):
+        idx = self.get_focus_index()
+        if idx + offset > 0:
+            idx = idx + offset
+            self.listbox.set_focus(idx)
+        else:
+            self.scroll_to_last()
+
+    def scroll_to_first(self):
+        self.listbox.set_focus(0)
+
+    def scroll_to_last(self):
+        self.listbox.set_focus(len(self.items)-1)
+
     def input_handler(self, input, raw):
         key = " ".join([unicode(i) for i in input])
         self.header_text.set_text("Pressed: " + key)
         
         if key == 'down':
-            self.log.debug('down')
-            idx = self.get_focus_index()
-            self.log.debug('idx='+str(idx))
-            
-            if idx < len(self.items) - 1:
-                idx = idx+1
-                self.listbox.set_focus(idx)
+            self.scroll_down(1)
         elif key == 'up':
-            idx = self.get_focus_index()
-            self.log.debug('idx='+str(idx))
-            if idx > 0:
-                idx = idx-1
-                self.listbox.set_focus(idx)
-        elif key in ('o', 'O'):
-            OpenFileAction().perform(self.get_focus_path(), editor='emacs -nw')
-        elif key in ('d', 'D'):
-            SvnDiffAction().perform(self.get_focus_path())
+            self.scroll_up(1)
+        elif key == 'page up':
+            self.scroll_up(self.PAGE_SCROLL_SIZE)
+        elif key == 'page down':
+            self.scroll_down(self.PAGE_SCROLL_SIZE)
+        elif key == 'home':
+            self.scroll_to_first()
+        elif key == 'end':
+            self.scroll_to_last()
         elif key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
+        elif self.pie_find.has_key_mapping(key):
+            cmd = self.pie_find.get_command(key)
+            cmd = cmd.replace('$file', self.get_focus_path())
+            self.log.debug(':: key ' + key + ' -> ' + cmd)
+            CommandLineAction().execute(cmd)
 
     def start(self):
         self.loop.run()
 
 
-class AbstractAction:
-    __metaclass__ = ABCMeta
-    
-    @abstractmethod
-    def perform(self, path, **kwargs):
-        """Performs an action on given path"""
-
-class OpenFileAction(AbstractAction):
-    def perform(self, path, **kwargs):
-        editor_cmd = kwargs['editor']
-        cmd = editor_cmd.split()
-        cmd.append(path)
-        subprocess.call(cmd)
-        
-class SvnDiffAction(AbstractAction):
-    def perform(self, path, **kwargs):
-        subprocess.call("svn diff " + path + " | less", shell=True)
-
-
+class CommandLineAction():
+    def execute(self, command):
+        subprocess.call(command, shell=True)
 
 class PieFind:
-    EXCLUDED_DIRS=['.git', '.hg', 'target', 'bin', 'classes']
+
+    def __init__(self, config):
+        self.ignored_dirs = config.get_ignored_dirs()
+        self.key_command_mappings = config.get_key_command_mappings()
 
     def find_files(self, baseDir, searchstring, results=[]):
         try:
@@ -118,7 +162,7 @@ class PieFind:
                         path = path[2:]
                     results.append(path)
             else:
-                if item not in self.EXCLUDED_DIRS:
+                if item not in self.ignored_dirs:
                     subDirs.append(path)
 
         for subDir in subDirs:
@@ -129,6 +173,11 @@ class PieFind:
     def matches(self, searchstring, item):
         return re.search(searchstring, item, re.IGNORECASE)
 
+    def has_key_mapping(self, key):
+        return key in self.key_command_mappings
+
+    def get_command(self, key):
+        return self.key_command_mappings[key]
 
 
 def parse_args():
@@ -142,8 +191,11 @@ basedir = os.curdir
 if args.basedir is not None:
     basedir = args.basedir
 
-pie_find = PieFind()
-path_list = sorted(pie_find.find_files(basedir, args.searchstring))
+config = PieConfig()
 
-ui = PieUI(path_list)
+
+pie_find = PieFind(config)
+path_list = sorted(pie_find.find_files(basedir, args.searchstring)) #XXX: refactor
+
+ui = PieUI(pie_find, path_list)
 ui.start()
