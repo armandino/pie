@@ -32,7 +32,6 @@ class PieConfig:
             pass
         return action_map
 
-
     def get_ignored_dirs(self):
         ignored = []
         try:
@@ -62,11 +61,11 @@ class PieUI(urwid.ListWalker):
         self.listbox = urwid.ListBox(content)
         
         self.header_text = urwid.Text("Press any key", wrap='clip')
-        footer_text = urwid.Text("", wrap='clip')
-        footer_text.set_text("[o]pen, [d]iff, [q]uit")
+        self.footer_text = urwid.Text("", wrap='clip')
+        self.footer_text.set_text("Found %i files" % len(self.items))
         
         head = urwid.AttrMap(self.header_text, 'header')
-        foot = urwid.AttrMap(footer_text, 'footer')
+        foot = urwid.AttrMap(self.footer_text, 'footer')
         top = urwid.Frame(self.listbox, head, foot)
         
         palette = [
@@ -91,23 +90,27 @@ class PieUI(urwid.ListWalker):
         idx = self.get_focus_index()
         if idx - offset > 0:
             idx = idx - offset
-            self.listbox.set_focus(idx)
+            self.scroll_to(idx)
         else:
             self.scroll_to_first()
 
     def scroll_down(self, offset):
         idx = self.get_focus_index()
-        if idx + offset > 0:
+        if idx + offset < len(self.items):
             idx = idx + offset
-            self.listbox.set_focus(idx)
+            self.scroll_to(idx)
         else:
             self.scroll_to_last()
 
     def scroll_to_first(self):
-        self.listbox.set_focus(0)
+        self.scroll_to(0)
 
     def scroll_to_last(self):
-        self.listbox.set_focus(len(self.items)-1)
+        self.scroll_to(len(self.items))
+
+    def scroll_to(self, idx):
+        self.listbox.set_focus(idx)
+        self.footer_text.set_text("%i / %i" % (idx, len(self.items)))
 
     def input_handler(self, input, raw):
         key = " ".join([unicode(i) for i in input])
