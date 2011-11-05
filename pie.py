@@ -200,5 +200,8 @@ config = PieConfig()
 pie_find = PieFind(config)
 path_list = sorted(pie_find.find_files(basedir, args.searchstring)) #XXX: refactor
 
-ui = PieUI(pie_find, path_list)
-ui.start()
+if path_list:
+    ui = PieUI(pie_find, path_list)
+    ui.start()
+else:
+    print "No files matching", args.searchstring
