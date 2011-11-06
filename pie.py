@@ -9,9 +9,8 @@ import subprocess
 import sys
 import urwid
 
-from abc import ABCMeta, abstractmethod
-
 # TODO: fix error - python pie.py /tmp/
+# TODO: popup to allow executing an arbitrary command
 
 class PieConfig:
     CONFIG_FILE = '~/.pie'
@@ -183,25 +182,27 @@ class PieFind:
         return self.key_command_mappings[key]
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('searchstring')
-    parser.add_argument('basedir', nargs='?')
-    return parser.parse_args()
 
-args = parse_args()
-basedir = os.curdir
-if args.basedir is not None:
-    basedir = args.basedir
+def main():
+    def parse_args():
+        parser = argparse.ArgumentParser()
+        parser.add_argument('searchstring')
+        parser.add_argument('basedir', nargs='?')
+        return parser.parse_args()
 
-config = PieConfig()
+    args = parse_args()
+    basedir = os.curdir
+    if args.basedir is not None:
+        basedir = args.basedir
 
+    pie_find = PieFind(PieConfig())
+    path_list = sorted(pie_find.find_files(basedir, args.searchstring)) #XXX: refactor
 
-pie_find = PieFind(config)
-path_list = sorted(pie_find.find_files(basedir, args.searchstring)) #XXX: refactor
+    if path_list:
+        ui = PieUI(pie_find, path_list)
+        ui.start()
+    else:
+        print "No files matching", args.searchstring
 
-if path_list:
-    ui = PieUI(pie_find, path_list)
-    ui.start()
-else:
-    print "No files matching", args.searchstring
+if __name__=="__main__": 
+    main()
