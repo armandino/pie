@@ -21,11 +21,14 @@ class PieFind:
         subDirs = []
         for item in dirList:
             path = os.path.join(baseDir, item)
-            if os.path.isfile(path):
+            # if symlink, add only if target is a file
+            if os.path.islink(path):
+                target = os.path.realpath(path)
+                if os.path.isfile(target):
+                    results.append(self.cleanpath(path))
+            elif os.path.isfile(path):
                 if self.matches(searchstring, item):
-                    if path.startswith('./'):
-                        path = path[2:]
-                    results.append(path)
+                    results.append(self.cleanpath(path))
             else:
                 if item not in self.ignored_dirs:
                     subDirs.append(path)
@@ -34,6 +37,11 @@ class PieFind:
             self.find_files(subDir, searchstring, results)
 
         return results
+
+    def cleanpath(self, path):
+        if path.startswith('./'):
+            path = path[2:]
+        return path
 
     def matches(self, searchstring, item):
         return re.search(searchstring, item, re.IGNORECASE)
