@@ -1,45 +1,15 @@
 #!/usr/bin/env python
 
 import argparse
-import ConfigParser
 import logging
 import os
-import re
-import subprocess
-import sys
 import urwid
+
+from pieconfig import PieConfig
+from piecontrol import PieFind, CommandLineAction
 
 # TODO: fix error - python pie.py /tmp/
 # TODO: popup to allow executing an arbitrary command
-
-class PieConfig:
-    CONFIG_FILE = '~/.pie'
-
-    def __init__(self):
-        self.config = ConfigParser.ConfigParser()
-        self.config.read(os.path.expanduser(self.CONFIG_FILE))
-
-    def get_key_command_mappings(self):
-        action_map = {}
-        try:
-            actions = self.config.items('KeyMappings')
-            for action in actions:
-                action_name = action[0]
-                action_cmd = action[1]
-                action_map[action_name] = action_cmd
-        except:
-            pass
-        return action_map
-
-    def get_ignored_dirs(self):
-        ignored = []
-        try:
-            value = self.config.get('Ignore', 'directories')
-            ignored = [x.strip() for x in value.split(',')]
-        except:
-            pass
-        return ignored
-
 
 class PieUI(urwid.ListWalker):
 
@@ -65,7 +35,7 @@ class PieUI(urwid.ListWalker):
         
         head = urwid.AttrMap(self.header_text, 'header')
         foot = urwid.AttrMap(self.footer_text, 'footer')
-        top = urwid.Frame(self.listbox, head, foot)
+        top = urwid.Frame(body=self.listbox, header=head, footer=foot)
         
         palette = [
             ('header', 'white', 'black'),
@@ -73,7 +43,8 @@ class PieUI(urwid.ListWalker):
             ('reveal focus', 'black', 'dark cyan', 'standout')]
         
         self.loop = urwid.MainLoop(
-            top, palette,
+            widget=top,
+			palette=palette,
             input_filter=self.input_handler)
 
     def get_focus_index(self):
@@ -137,49 +108,6 @@ class PieUI(urwid.ListWalker):
 
     def start(self):
         self.loop.run()
-
-
-class CommandLineAction():
-    def execute(self, command):
-        subprocess.call(command, shell=True)
-
-class PieFind:
-
-    def __init__(self, config):
-        self.ignored_dirs = config.get_ignored_dirs()
-        self.key_command_mappings = config.get_key_command_mappings()
-
-    def find_files(self, baseDir, searchstring, results=[]):
-        try:
-            dirList = os.listdir(baseDir)
-        except OSError:
-            dirList = []
-
-        subDirs = []
-        for item in dirList:
-            path = os.path.join(baseDir, item)
-            if os.path.isfile(path):
-                if self.matches(searchstring, item):
-                    if path.startswith('./'):
-                        path = path[2:]
-                    results.append(path)
-            else:
-                if item not in self.ignored_dirs:
-                    subDirs.append(path)
-
-        for subDir in subDirs:
-            self.find_files(subDir, searchstring, results)
-
-        return results
-
-    def matches(self, searchstring, item):
-        return re.search(searchstring, item, re.IGNORECASE)
-
-    def has_key_mapping(self, key):
-        return key in self.key_command_mappings
-
-    def get_command(self, key):
-        return self.key_command_mappings[key]
 
 
 
