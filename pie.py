@@ -8,7 +8,7 @@ import urwid
 from pieconfig import PieConfig
 from piecontrol import PieFind, CommandLineAction
 
-# TODO: fix error - python pie.py /tmp/
+# TODO: handle invalid input/special chars in searchstring
 # TODO: popup to allow executing an arbitrary command
 
 class PieUI(urwid.ListWalker):
@@ -32,11 +32,11 @@ class PieUI(urwid.ListWalker):
         self.header_text = urwid.Text("Press any key", wrap='clip')
         self.footer_text = urwid.Text("", wrap='clip')
         self.footer_text.set_text("Found %i files" % len(self.items))
-        
+
         head = urwid.AttrMap(self.header_text, 'header')
         foot = urwid.AttrMap(self.footer_text, 'footer')
         top = urwid.Frame(body=self.listbox, header=head, footer=foot)
-        
+
         palette = [
             ('header', 'white', 'black'),
             ('footer', 'white', 'dark green'),
@@ -105,10 +105,14 @@ class PieUI(urwid.ListWalker):
             cmd = cmd.replace('$file', self.get_focus_path())
             self.log.debug(':: key ' + key + ' -> ' + cmd)
             CommandLineAction().execute(cmd)
+        elif 'mouse press' in key or 'mouse drag' in key or 'mouse release' in key:
+            k = key[1:-1].split(',')
+            clicked_item_idx = int(k[len(k)-1]) - 1
+            self.scroll_to(clicked_item_idx)
+            self.log.debug(clicked_item_idx)
 
     def start(self):
         self.loop.run()
-
 
 
 def main():
