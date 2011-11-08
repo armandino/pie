@@ -29,3 +29,10 @@ class PieConfig:
             pass
         return ignored
 
+    def ignore_hidden(self):
+        try:
+            return self.config.getboolean('Ignore', 'ignore-hidden')
+        except:
+            pass
+        return False
+        

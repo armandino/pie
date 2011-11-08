@@ -11,6 +11,7 @@ class PieFind:
     def __init__(self, config):
         self.ignored_dirs = config.get_ignored_dirs()
         self.key_command_mappings = config.get_key_command_mappings()
+        self.ignore_hidden = config.ignore_hidden()
 
     def find_files(self, baseDir, searchstring, results=[]):
         try:
@@ -20,6 +21,9 @@ class PieFind:
 
         subDirs = []
         for item in dirList:
+            if self.ignore_hidden and self.is_hidden(item):
+                continue
+
             path = os.path.join(baseDir, item)
             # if symlink, add only if target is a file
             if os.path.islink(path):
@@ -37,6 +41,9 @@ class PieFind:
             self.find_files(subDir, searchstring, results)
 
         return results
+
+    def is_hidden(self, item):
+        return item.startswith('./') is False and item.startswith('.')
 
     def cleanpath(self, path):
         if path.startswith('./'):
