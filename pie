@@ -1,8 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+#
+# Copyright 2013 Arman Sharif
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import argparse
 import logging
 import os
+# import pyperclip # requires xclip
 import urwid
 
 from pieconfig import PieConfig
@@ -11,11 +27,13 @@ from piecontrol import PieFind, CommandLineAction
 # TODO: handle invalid input/special chars in searchstring
 # TODO: popup to allow executing an arbitrary command
 
+_LOG_FILE='/tmp/pie.log'
+
 class PieUI(urwid.ListWalker):
 
     PAGE_SCROLL_SIZE = 10
     
-    logging.basicConfig(filename='/tmp/pie.log', level=logging.DEBUG)
+    logging.basicConfig(filename=_LOG_FILE, level=logging.DEBUG)
     log = logging.getLogger()
     
     def __init__(self, pie_find, path_list):
@@ -39,13 +57,15 @@ class PieUI(urwid.ListWalker):
 
         palette = [
             ('header', 'white', 'black'),
-            ('footer', 'white', 'dark green'),
+            # commented out to prevent 'less' with green bg
+            # ('footer', 'white', 'dark green'),
             ('reveal focus', 'black', 'dark cyan', 'standout')]
         
         self.loop = urwid.MainLoop(
             widget=top,
-			palette=palette,
-            input_filter=self.input_handler)
+            palette=palette,
+            input_filter=self.input_handler,
+            pop_ups=True)
 
     def get_focus_index(self):
         focus_widget, idx = self.listbox.get_focus()
@@ -80,7 +100,7 @@ class PieUI(urwid.ListWalker):
 
     def scroll_to(self, idx):
         self.listbox.set_focus(idx)
-        self.footer_text.set_text("%i / %i" % (idx, len(self.items)))
+        self.footer_text.set_text("Results: %i / %i" % (idx, len(self.items)))
 
     def input_handler(self, input, raw):
         key = " ".join([unicode(i) for i in input])
@@ -98,6 +118,9 @@ class PieUI(urwid.ListWalker):
             self.scroll_to_first()
         elif key == 'end':
             self.scroll_to_last()
+        elif key in ('c'):
+            # TODO: copy path to clip board ('C' copy abs path to clipboard)
+            self.log.debug('TODO copy to clipboard: ' + self.get_focus_path())
         elif key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
         elif self.pie_find.has_key_mapping(key):

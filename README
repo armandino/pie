@@ -1,9 +1,0 @@
-usage: pie.py searchstring [basedir]
-
-e.g.
-
-pie.py foo
-pie.py bar /some/path
-
-To customise configuration, copy the config file '.pie'
-under user's home directory: /home/username

@@ -1,12 +1,21 @@
+# -*- coding: utf-8 -*-
 import ConfigParser
 import os
+from defaultconf import *
+
+_USER_HOME_CONF_FILE = os.path.join(os.getenv('HOME'), '.pie')
 
 class PieConfig:
-    CONFIG_FILE = '~/.pie'
 
     def __init__(self):
         self.config = ConfigParser.ConfigParser()
-        self.config.read(os.path.expanduser(self.CONFIG_FILE))
+        self.config.read(os.path.expanduser(self.get_conf_path()))
+
+    def get_conf_path(args):
+        if not os.path.isfile(_USER_HOME_CONF_FILE):
+            with open(_USER_HOME_CONF_FILE, 'w+') as f:
+                f.write(DEFAULT_CONF)
+        return _USER_HOME_CONF_FILE
 
     def get_key_command_mappings(self):
         action_map = {}
