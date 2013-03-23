@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import re
 import os
+import stat
 import subprocess
+import sys
 
 class CommandLineAction():
     def execute(self, command):
@@ -26,6 +28,10 @@ class PieFind:
                 continue
 
             path = os.path.join(baseDir, item)
+            if not self.isgroupreadable(path):
+                sys.stderr.write("pie: '%s': Permission denied\n" % path)
+                continue
+
             # if symlink, add only if target is a file
             if os.path.islink(path):
                 target = os.path.realpath(path)
@@ -42,6 +48,15 @@ class PieFind:
             self.find_files(subDir, searchstring, results)
 
         return results
+
+    # See: http://stackoverflow.com/questions/1861836
+    def isgroupreadable(self, filepath):
+        # TODO: avoid try/except
+        try:
+            st = os.stat(filepath)
+            return bool(st.st_mode & stat.S_IRGRP)
+        except:
+            return False
 
     def is_hidden(self, item):
         return item.startswith('./') is False and item.startswith('.')
